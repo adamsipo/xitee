@@ -14,12 +14,15 @@ Vagrant.configure(2) do |config|
     node.vm.box = VAGRANT_BOX
     node.vm.box_version = VAGRANT_BOX_VERSION
 
-    node.vm.network "private_network", type: "dhcp" # Use DHCP for IP assignment
+    # Specify a custom IP address here
+    node.vm.network "private_network", ip: "192.168.100.23"
 
     node.vm.provider :virtualbox do |v|
       v.name = "almalinux-8"
       v.memory = MEMORY
       v.cpus = CPUS
     end
+
+    node.vm.provision "file", source: "~/.ssh/id_rsa.pub", destination: "~/.ssh/authorized_keys"
   end
 end
