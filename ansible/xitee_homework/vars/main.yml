@@ -4,10 +4,8 @@ docker_version: "1.29.2"
 wordpress_base_dir: "/opt/wordpress"
 db_container_name: "wordpress_database"
 wordpress_container_name: "wordpress"
-mysql_root_password: "rootpassword"
 mysql_database: "wordpress_db"
 mysql_user: "wordpress_user"
-mysql_password: "wordpress_password"
 wordpress_port: 80
 
 ## Use 12h time format
