@@ -7,7 +7,7 @@ VAGRANT_BOX = "almalinux/8" # Use the AlmaLinux 8 box
 VAGRANT_BOX_VERSION = "8.8.20230606" # Use the latest version of the box
 
 CPUS = 2
-MEMORY = 2048
+MEMORY = 4096
 
 Vagrant.configure(2) do |config|
   config.vm.define "almalinux-8" do |node|
