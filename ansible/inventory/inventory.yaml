@@ -5,6 +5,11 @@ all:
         firewall_services:
           - http
           - ssh
+        user_name: xitest
+        user_password: pasx.123
+        ssh_public_keys:
+          - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOH/TlOb8TAXiMhN8u7VNqPC7W2hrhygm/1BZBZZp0qo marek@GUADALAJARA-WSL"
+          - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP7FHrfu37DbzYBs6T3P/aq+XOeJAtu8Ftl1/3g1EN/Ktkuba"
       hosts:
         192.168.100.23:
           ansible_user: vagrant

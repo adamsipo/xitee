@@ -1,12 +1,12 @@
 - name: Ensure firewalld is running
-  systemd:
+  ansible.builtin.systemd:
     name: firewalld
     state: started
     enabled: true
   become: true
 
 - name: Open firewall port for "{{ item }}"
-  firewalld:
+  ansible.posix.firewalld:
     service: "{{ item }}"
     permanent: true
     state: enabled

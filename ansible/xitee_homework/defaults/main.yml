@@ -3,3 +3,4 @@
 packages_to_install:
   - net-tools
   - jq
+  - python3-pip

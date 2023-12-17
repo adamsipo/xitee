@@ -1,0 +1,85 @@
+- name: Create WordPress directories
+  become: true
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ wordpress_base_dir }}"
+    - "{{ wordpress_base_dir }}/backup"
+
+- name: Change ownership of directory {{ wordpress_base_dir }}
+  ansible.builtin.file:
+    path: "{{ wordpress_base_dir }}"
+    recurse: true
+    owner: "{{ user_name }}"
+    group: "{{ user_name }}"
+    state: directory
+
+- name: Start Docker service
+  become: true
+  become_user: "{{ user_name }}"
+  ansible.builtin.systemd:
+    name: docker
+    state: started
+
+- name: Render Docker Compose file from template
+  become: true
+  become_user: "{{ user_name }}"
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ wordpress_base_dir }}/docker-compose.yml"
+    mode: '0755'
+
+- name: Get information about WordPress container
+  community.docker.docker_container_info:
+    name: "{{ wordpress_container_name }}"
+  register: wordpress_container_info
+  ignore_errors: true
+
+- name: Get information about Database container
+  community.docker.docker_container_info:
+    name: "{{ db_container_name }}"
+  register: database_container_info
+  ignore_errors: true
+
+- name: Start WordPress and Database containers
+  become: true
+  become_user: "{{ user_name }}"
+  community.docker.docker_compose:
+    project_src: "{{ wordpress_base_dir }}"
+    files:
+      - docker-compose.yml
+    state: present
+    pull: true
+    restarted: true
+  when: not (wordpress_container_info.exists | bool) or not (database_container_info.exists | bool)
+
+- name: Setup database backup cron jobs
+  become: true
+  become_user: "{{ user_name }}"
+  ansible.builtin.cron:
+    name: "Database backup at {{ item.name }}"
+    job: >
+      docker exec {{ db_container_name }}
+      sh -c 'exec mysqldump --all-databases -u root -p {{ mysql_root_password }}' >
+      {{ wordpress_base_dir }}/backup/dump_$(date +\%Y\%m\%d).sql
+    minute: "{{ item.minute }}"
+    hour: "{{ item.hour }}"
+    day: "*"
+    month: "*"
+    weekday: "*"
+  loop: "{{ backup_schedule_times }}"
+
+- name: Setup cleanup cron job
+  become: true
+  become_user: "{{ user_name }}"
+  ansible.builtin.cron:
+    name: "Cleanup old backups"
+    job: >
+      find {{ wordpress_base_dir }}/backup -type f -name 'dump_*' -mtime +2 -exec rm {} \;
+    minute: "0"
+    hour: "2"  # Adjust the time as needed
+    day: "*"
+    month: "*"
+    weekday: "*"

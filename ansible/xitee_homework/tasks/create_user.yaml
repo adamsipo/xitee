@@ -1,0 +1,23 @@
+- name: Ensure the user is present
+  ansible.builtin.user:
+    name: "{{ user_name }}"
+    password: "{{ user_password | password_hash('sha512') }}"
+    create_home: true
+    groups: wheel
+    append: true
+  changed_when: false
+
+- name: Ensure the user can use sudo without a password
+  ansible.builtin.lineinfile:
+    path: /etc/sudoers
+    state: present
+    regexp: '^%wheel'
+    line: '%wheel ALL=(ALL) NOPASSWD: ALL'
+    validate: 'visudo -cf %s'
+
+- name: Set authorized keys for the user
+  ansible.posix.authorized_key:
+    user: "{{ user_name }}"
+    state: present
+    key: "{{ item }}"
+  loop: "{{ ssh_public_keys }}"
