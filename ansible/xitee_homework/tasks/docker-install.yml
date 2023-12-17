@@ -12,22 +12,6 @@
     state: present
   loop: "{{ packages_to_install }}"
 
-# - name: Add Docker repository
-#   dnf:
-#     name: https://download.docker.com/linux/centos/docker-ce.repo
-#     state: present
-#   become: true
-
-# - name: Add Docker repository
-#   yum_repository:
-#     name: Docker-ce
-#     description: Docker CE Stable - $basearch
-#     baseurl: https://download.docker.com/linux/centos/7/$basearch/stable
-#     enabled: true
-#     gpgcheck: true
-#     gpgkey: https://download.docker.com/linux/centos/gpg
-#   become: true
-
 - name: Add Docker repository
   yum_repository:
     name: docker-ce
