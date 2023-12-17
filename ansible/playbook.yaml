@@ -1,0 +1,6 @@
+---
+- name: Xitee_homework
+  hosts: servers
+  become: true
+  roles:
+    - { role: xitee_homework, x: 42 }

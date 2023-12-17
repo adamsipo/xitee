@@ -1,0 +1,5 @@
+- name: Include Docker Install Tasks
+  include_tasks: docker-install.yml
+
+- name: Include Firewall rules Tasks
+  include_tasks: firewall_rules.yaml
