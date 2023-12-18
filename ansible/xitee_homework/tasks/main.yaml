@@ -1,11 +1,11 @@
-# - name: Include Firewall rules Tasks
-#   include_tasks: firewall_rules.yaml
+- name: Include Firewall rules Tasks
+  include_tasks: firewall_rules.yaml
 
-# - name: Include Firewall rules Tasks
-#   include_tasks: create_user.yaml
+- name: Include Firewall rules Tasks
+  include_tasks: create_user.yaml
 
-# - name: Include Docker Install Tasks
-#   include_tasks: docker-install.yml
+- name: Include Docker Install Tasks
+  include_tasks: docker-install.yml
 
 - name: Include Wordpress Install Tasks
   include_tasks: wordpress.yaml
