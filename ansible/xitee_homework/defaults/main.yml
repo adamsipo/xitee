@@ -1,0 +1,6 @@
+---
+# defaults file for xitee_homework
+packages_to_install:
+  - net-tools
+  - jq
+  - python3-pip

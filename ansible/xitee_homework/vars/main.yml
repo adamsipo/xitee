@@ -1,0 +1,21 @@
+---
+# vars file for xitee_homework
+docker_version: "1.29.2"
+wordpress_base_dir: "/opt/wordpress"
+db_container_name: "wordpress_database"
+wordpress_container_name: "wordpress"
+mysql_database: "wordpress_db"
+mysql_user: "wordpress_user"
+wordpress_port: 80
+
+## Use 12h time format
+backup_schedule_times:
+  - name: first_backup
+    hour: "08"
+    minute: "00"
+  - name: second_backup
+    hour: "16"
+    minute: "00"
+  - name: third_backup
+    hour: "00"
+    minute: "00"

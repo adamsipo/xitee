@@ -1,0 +1,92 @@
+- name: Update system package index
+  ansible.builtin.dnf:
+    name: '*'
+    state: latest
+    update_cache: true
+  become: true
+
+- name: Install specified packages
+  become: true
+  ansible.builtin.package:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ packages_to_install }}"
+
+- name: Upgrade pip
+  ansible.builtin.pip:
+    name: pip
+    state: latest
+  become: true
+
+- name: Install docker-compose
+  ansible.builtin.pip:
+    name: docker-compose
+    state: latest
+  become: true
+
+- name: Add Docker repository
+  ansible.builtin.yum_repository:
+    name: docker-ce
+    description: Docker CE Stable - $basearch
+    baseurl: https://download.docker.com/linux/centos/8/$basearch/stable
+    enabled: true
+    gpgcheck: true
+    gpgkey: https://download.docker.com/linux/centos/gpg
+  become: true
+
+- name: Install Docker and dependencies
+  ansible.builtin.dnf:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+    state: present
+  become: true
+
+- name: Start and enable Docker service
+  ansible.builtin.systemd:
+    name: docker
+    state: started
+    enabled: true
+  become: true
+
+- name: Install Docker Compose
+  become: true
+  block:
+    - name: Download Docker Compose
+      ansible.builtin.get_url:
+        url: "https://github.com/docker/compose/releases/download/{{ docker_version }}/docker-compose-{{ ansible_system }}-{{ ansible_userspace_architecture }}"
+        dest: /usr/local/bin/docker-compose
+        mode: '0755'
+
+    - name: Verify Docker Compose installation
+      ansible.builtin.command: "/usr/local/bin/docker-compose --version"
+      register: docker_compose_version
+      changed_when: false
+
+    - name: Display Docker Compose version
+      ansible.builtin.debug:
+        var: docker_compose_version.stdout
+
+- name: Create docker group
+  ansible.builtin.group:
+    name: docker
+    state: present
+
+- name: Add user to docker group
+  ansible.builtin.user:
+    name: "{{ user_name }}"
+    groups: docker
+    append: true
+
+- name: Verify Docker installation
+  ansible.builtin.command: docker run hello-world
+  register: docker_hello_world
+  changed_when: false
+
+- name: Check if Docker installation is successful
+  ansible.builtin.assert:
+    that:
+      - "'Hello from Docker!' in docker_hello_world.stdout"
+    fail_msg: "Docker installation verification failed"
+    success_msg: "Docker installation verified successfully"

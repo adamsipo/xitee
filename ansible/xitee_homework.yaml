@@ -1,0 +1,8 @@
+---
+- name: Xitee_homework
+  hosts: servers
+  become: true
+  vars_files:
+  - ./secret.yml
+  roles:
+    - { role: xitee_homework }
