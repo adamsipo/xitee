@@ -1,0 +1,81 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+ENV["VAGRANT_NO_PARALLEL"] = "yes"
+
+IP_RANGE = "192.168.22."
+
+VAGRANT_BOX = "generic/fedora32"
+VAGRANT_BOX_VERSION = "4.3.12"
+
+CPUS_MASTER_NODE = 2
+CPUS_WORKER_NODE = 2
+
+MEMORY_MASTER_NODE = 2048
+MEMORY_WORKER_NODE = 1024
+
+MASTER_NODES_COUNT = 1
+WORKER_NODES_COUNT = 1
+
+CLUSTER_NAME = "k8s-1"
+
+MASTER_NODE_NAME = "master"
+WORKER_NODE_NAME = "worker"
+
+MASTER_LOAD_BALANCER_NAME = "lb-master"
+WORKER_LOAD_BALANCER_NAME = "lb-worker"
+
+MASTER_LOAD_BALANCER_IP = "#{IP_RANGE}#{210}"
+WORKER_LOAD_BALANCER_IP = "#{IP_RANGE}#{220}"
+
+IP_MASTER_LIST = (1..MASTER_NODES_COUNT).map do |i|
+  "#{IP_RANGE}#{100 + i} #{MASTER_NODE_NAME}-#{i} #{MASTER_NODE_NAME}-#{i}"
+end.join(",")
+
+IP_WORKER_LIST = (1..WORKER_NODES_COUNT).map do |i|
+  "#{IP_RANGE}#{100 + i} #{WORKER_NODE_NAME}-#{i} #{WORKER_NODE_NAME}-#{i}"
+end.join(",")
+
+Vagrant.configure(2) do |config|
+
+  # Kubernetes Master Nodes
+  (1..MASTER_NODES_COUNT).each do |i|
+    config.vm.define "#{MASTER_NODE_NAME}-#{i}-#{CLUSTER_NAME}" do |masternode|
+      masternode.vm.box = VAGRANT_BOX
+      masternode.vm.box_check_update = false
+      masternode.vm.box_version = VAGRANT_BOX_VERSION
+      masternode.vm.hostname = "#{MASTER_NODE_NAME}-#{i}"
+      masternode.vm.network "private_network", ip: "#{IP_RANGE}#{100 + i}"
+
+      # KVM configuration with libvirt
+      masternode.vm.provider :libvirt do |v|
+        v.memory = MEMORY_MASTER_NODE
+        v.cpus = CPUS_MASTER_NODE
+      end
+      # Copy prepare_machine.sh to the master node
+      masternode.vm.provision "file", source: "prepare_machine.sh", destination: "/home/vagrant/prepare_machine.sh"
+      masternode.vm.synced_folder "okd_installer", "/root/okd_installer"
+
+      # Run the prepare_machine.sh on the master node as root
+      masternode.vm.provision "shell", path: "prepare_machine.sh", privileged: true
+
+    end
+  end
+
+  # Kubernetes Worker Nodes
+  (1..WORKER_NODES_COUNT).each do |i|
+    config.vm.define "#{WORKER_NODE_NAME}-#{i}-#{CLUSTER_NAME}" do |workernode|
+      workernode.vm.box = VAGRANT_BOX
+      workernode.vm.box_check_update = false
+      workernode.vm.box_version = VAGRANT_BOX_VERSION
+      workernode.vm.hostname = "#{WORKER_NODE_NAME}-#{i}"
+      workernode.vm.network "private_network", ip: "#{IP_RANGE}#{200 + i}"
+
+      # KVM configuration with libvirt
+      workernode.vm.provider :libvirt do |v|
+        v.memory = MEMORY_WORKER_NODE
+        v.cpus = CPUS_WORKER_NODE
+      end
+    end
+  end
+end
