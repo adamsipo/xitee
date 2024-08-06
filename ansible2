@@ -1,0 +1,116 @@
+- name: PowerOn bootstrap server
+  community.vmware.vmware_guest_powerstate:
+    hostname: "{{ vcenter | json_query('datacenters[?dc_iden == `_host.datacenter` | default(default_datacenter_id)] | [0].hostname') | first }}"
+    username: "{{ vcenter.username }}"
+    password: "{{ vcenter.password }}"
+    validate_certs: false
+    folder: "{{ vcenter | json_query('datacenters[?dc_iden == `_host.datacenter` | default(default_datacenter_id)] | [0].folder') | first }}{{ cluster_name | upper }}"
+    name: "{{ _host.hostname }}.{{ cluster_name }}.{{ base_domain }}"
+    state: powered-on
+  vars:
+    _host: "{{ hosts.values() | selectattr('role', 'equalto', 'bootstrap') | last | first }}"
+  when:
+    - _host.enabled | default('true') | bool
+
+- name: Wait for API
+  uri:
+    url: https://api.{{ cluster_name }}.{{ base_domain }}:6443/readyz
+    method: GET
+    validate_certs: false
+    return_content: yes
+    timeout: 5
+  register: api_ready
+  until: api_ready.content == "ok"
+  retries: "{{ api_time_wait | default(300) }}"
+  delay: 5
+
+- name: PowerOn all master servers
+  community.vmware.vmware_guest_powerstate:
+    hostname: "{{ vcenter | json_query('datacenters[?dc_iden == `_host.datacenter` | default(default_datacenter_id)] | [0].hostname') }}"
+    username: "{{ vcenter.username }}"
+    password: "{{ vcenter.password }}"
+    validate_certs: false
+    folder: "{{ vcenter | json_query('datacenters[?dc_iden == `_host.datacenter` | default(default_datacenter_id)] | [0].folder') }}"
+    name: "{{ _host.hostname }}.{{ cluster_name }}.{{ base_domain }}"
+    state: powered-on
+  vars:
+    _host: "{{ hosts.values() | selectattr('role', 'equalto', 'master') | list }}"
+  loop_control:
+    label: Power on host {{ _host.hostname }}
+  when:
+    - _host.enabled | default('true') | bool
+
+- name: Wait for all master is UP
+  uri:
+    url: https://api.{{ cluster_name }}.{{ base_domain }}:6443/api/v1/nodes
+    method: GET
+    validate_certs: false
+    return_content: yes
+    client_certs: "{{ _client_cert }}"
+    status_codes: 200,201,204
+  vars:
+    _client_cert: "{{ tmp_path_prefix }}/{{ install_dir }}/auth/client_cert.pem"
+  register: ready_master
+  until: (ready_master.content | from_json | json_query('items[*].status.conditions[?reason=="KubeletReady" && status=="True"]').length == {{ api_time_wait | default(300) }})
+  delay: 5
+  when: initialize_cluster | bool
+
+
+- name: PowerOn other servers
+  community.vmware.vmware_guest_powerstate:
+    hostname: "{{ vcenter | json_query('datacenters[?dc_iden == `_host.datacenter` | default(default_datacenter_id)] | [0].hostname') }}"
+    username: "{{ vcenter.username }}"
+    password: "{{ vcenter.password }}"
+    validate_certs: false
+    folder: "{{ vcenter | json_query('datacenters[?dc_iden == `_host.datacenter` | default(default_datacenter_id)] | [0].folder') }}"
+    name: "{{ _host.hostname }}.{{ cluster_name }}.{{ base_domain }}"
+    state: powered-on
+  vars:
+    _host: "{{ item }}"
+  loop: "{{ hosts.values() | rejectattr('role', 'match', 'master|bootstrap') | list }}"
+  loop_control:
+    label: Power on host {{ _host.hostname }}
+
+- name: Configure cluster mode
+  block:
+    - name: Get Credentials
+      include_tasks:
+        file: tasks/get_cred.yml
+
+    - name: Configure additional labels for nodes
+      uri:
+        url: https://api.{{ cluster_name }}.{{ base_domain }}:6443/api/v1/nodes/{{ item.hostname }}
+        validate_certs: false
+        method: PATCH
+        headers:
+          Content-Type: application/merge-patch+json
+        client_cert: "{{ client_cert_file.dest }}"
+        status_codes: 200,201,204
+        body_format: json
+        body: "{{ { 'metadata': { 'labels': _labels } } }}"
+      vars:
+        _labels: "{{ item.labels | from_yaml | to_json | from_json }}"
+      loop: "{{ hosts.values() | selectattr('role', 'match', 'bootstrap') | selectattr('labels', 'defined') | list }}"
+      loop_control:
+        label: Configure additional labels for node {{ item.hostname }}
+      when: _labels | length > 0
+      ignore_errors: yes
+
+    - name: Configure specification for nodes
+      uri:
+        url: https://api.{{ cluster_name }}.{{ base_domain }}:6443/api/v1/nodes/{{ item.hostname }}
+        validate_certs: false
+        method: PATCH
+        headers:
+          Content-Type: application/merge-patch+json
+        client_cert: "{{ client_cert_file.dest }}"
+        status_codes: 200,201,204
+        body_format: json
+        body: "{{ { 'spec': _spec } }}"
+      vars:
+        _spec: "{{ item.spec | from_yaml | to_json | from_json }}"
+      loop: "{{ hosts.values() | selectattr('role', 'ne', 'bootstrap') | selectattr('spec', 'defined') | list }}"
+      loop_control:
+        label: Configure spec for node {{ item.hostname }}
+      when: _spec | length > 0
+      ignore_errors: yes
